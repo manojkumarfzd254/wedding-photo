@@ -20,22 +20,31 @@ Route::post('/wishlist-toggle', [GalleryController::class, 'toggleWishlist']);
 Route::get('/admin/upload', function () {
     return view('upload');
 });
+
+
 Route::post('/admin/upload', function (Request $request) {
     if ($request->hasFile('photos')) {
         foreach ($request->file('photos') as $file) {
-            // Get the original filename
+            // Get original file name
             $originalName = $file->getClientOriginalName();
+            $storagePath = 'photos/' . $originalName;
 
-            // Store the file and retain the original filename
+            // Skip if file with same name already exists in storage
+            if (Storage::disk('public')->exists($storagePath)) {
+                continue;
+            }
+
+            // Store file
             $path = $file->storeAs('photos', $originalName, 'public');
 
-            // Save the original filename to the database
+            // Save to database
             Photo::create(['filename' => $originalName]);
         }
     }
 
     return response()->json(['success' => true]);
 });
+
 
 Route::get('/admin/users', function () {
     $users = User::withCount('wishlist')->get(); // also show how many photos in each wishlist
