@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {{-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> --}}
     <title>Photo Selection</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
@@ -32,7 +32,7 @@
     <div class="row">
         @foreach ($photos as $photo)
         <div class="col-md-3 mb-3">
-            <div class="photo {{ in_array($photo->id, $wishlist) ? 'selected' : '' }}" data-id="{{ $photo->id }}" data-bs-toggle="modal" data-bs-target="#photoModal{{ $photo->id }}">
+            <div class="photo {{ in_array($photo->id, $wishlist) ? 'selected' : '' }}" data-id="{{ $photo->id }}">
                 <img src="{{ asset('storage/photos/' . $photo->filename) }}" class="img-fluid">
                 <div class="heart">&#10084;</div>
             </div>
@@ -63,7 +63,19 @@
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        $('.heart').click(function () {
+        // Open modal when photo (not heart) is clicked
+        $('.photo').click(function (e) {
+            // Ensure the heart click doesn't trigger the modal
+            if ($(e.target).hasClass('heart')) {
+                return;
+            }
+            let photoId = $(this).data('id');
+            $('#photoModal' + photoId).modal('show');
+        });
+
+        // Prevent modal opening when clicking on the heart
+        $('.heart').click(function (e) {
+            e.stopPropagation(); // Stop the event from propagating to the photo div
             let photoDiv = $(this).closest('.photo');
             let photoId = photoDiv.data('id');
             photoDiv.toggleClass('selected');
