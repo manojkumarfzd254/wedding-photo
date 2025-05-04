@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Upload Wedding Photos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 <body class="p-4">
@@ -32,6 +33,9 @@
             let progressBar = $('.progress-bar');
             let xhr = new XMLHttpRequest();
 
+            // Reset message visibility
+            $('#message').stop(true, true).fadeIn().html('');
+
             xhr.open('POST', '/admin/upload', true);
             xhr.setRequestHeader('X-CSRF-TOKEN', '{{ csrf_token() }}');
 
@@ -48,12 +52,26 @@
                 } else {
                     $('#message').html('<div class="alert alert-danger">Upload failed.</div>');
                 }
+
                 progressBar.removeClass('progress-bar-animated');
+
+                // Hide message after 2 seconds
+                setTimeout(function () {
+                    $("#message").fadeOut("slow", function () {
+                        $(this).html('').fadeIn(); // Clear message and reset for next use
+                    });
+                }, 2000);
             };
 
             xhr.onerror = function () {
                 $('#message').html('<div class="alert alert-danger">Network Error.</div>');
                 progressBar.removeClass('progress-bar-animated');
+
+                setTimeout(function () {
+                    $("#message").fadeOut("slow", function () {
+                        $(this).html('').fadeIn(); // Clear message and reset
+                    });
+                }, 2000);
             };
 
             xhr.send(formData);
