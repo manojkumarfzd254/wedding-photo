@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Response;
 
 Route::get('/', function () {
     return view('welcome');
@@ -56,6 +57,8 @@ Route::get('/admin/user/{user}/wishlist', function (User $user) {
     return view('admin.users.wishlist', compact('user', 'photos'));
 })->name('admin.user.wishlist');
 
+
+
 Route::get('/admin/user/{user}/wishlist/download', function (\App\Models\User $user) {
     $photos = $user->wishlist()->with('photo')->get();
 
@@ -64,26 +67,39 @@ Route::get('/admin/user/{user}/wishlist/download', function (\App\Models\User $u
     }
 
     $zipFileName = 'wishlist_' . Str::slug($user->name) . '_' . time() . '.zip';
-    $zipPath = storage_path('app/public/zips/' . $zipFileName);
+    $zipRelativePath = 'zips/' . $zipFileName;
+    $zipFullPath = storage_path('app/public/' . $zipRelativePath);
 
-    // Ensure directory exists
+    // Ensure 'zips' directory exists
     if (!Storage::disk('public')->exists('zips')) {
         Storage::disk('public')->makeDirectory('zips');
     }
 
-    $zip = new ZipArchive;
-    if ($zip->open($zipPath, ZipArchive::CREATE) === TRUE) {
+    // Create zip file
+    $zip = new \ZipArchive; // <-- Global class, no use statement needed
+    if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
         foreach ($photos as $item) {
-            $photoPath = storage_path('app/public/photos/' . $item->photo->filename);
-            if (file_exists($photoPath)) {
-                $zip->addFile($photoPath, $item->photo->filename);
+            if (!empty($item->photo) && !empty($item->photo->filename)) {
+                $photoPath = storage_path('app/public/photos/' . $item->photo->filename);
+                if (file_exists($photoPath)) {
+                    $zip->addFile($photoPath, $item->photo->filename);
+                }
             }
         }
         $zip->close();
+    } else {
+        return back()->with('error', 'Could not create ZIP file.');
     }
 
-    return response()->download($zipPath)->deleteFileAfterSend(true);
+    // Stream the ZIP file as a download to avoid memory issues
+    return response()->streamDownload(function () use ($zipFullPath) {
+        $stream = fopen($zipFullPath, 'rb');
+        fpassthru($stream);
+        fclose($stream);
+    }, $zipFileName);
 })->name('admin.user.wishlist.download');
+
+
 
 Route::get('/routes', function () {
     $routes = collect(Route::getRoutes())->map(function ($route) {
