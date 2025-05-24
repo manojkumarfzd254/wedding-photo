@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\VideoController;
+use App\Jobs\GenerateUserWishlistZip;
 use App\Models\Photo;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -59,45 +60,22 @@ Route::get('/admin/user/{user}/wishlist', function (User $user) {
 
 
 
+Route::get('/admin/user/{user}/wishlist/prepare-download', function (\App\Models\User $user) {
+    GenerateUserWishlistZip::dispatch($user->id);
+    return back()->with('success', 'Your wishlist ZIP is being prepared. Check back in a few minutes.');
+})->name('admin.user.wishlist.prepare');
+
+
 Route::get('/admin/user/{user}/wishlist/download', function (\App\Models\User $user) {
-    $photos = $user->wishlist()->with('photo')->get();
+    $relativePath = $user->wishlist_zip_path;
 
-    if ($photos->isEmpty()) {
-        return back()->with('error', 'No wishlist photos found for this user.');
+    if (!$relativePath || !Storage::disk('public')->exists($relativePath)) {
+        return back()->with('error', 'The ZIP file is not ready yet. Please try again later.');
     }
 
-    $zipFileName = 'wishlist_' . Str::slug($user->name) . '_' . time() . '.zip';
-    $zipRelativePath = 'zips/' . $zipFileName;
-    $zipFullPath = storage_path('app/public/' . $zipRelativePath);
-
-    // Ensure 'zips' directory exists
-    if (!Storage::disk('public')->exists('zips')) {
-        Storage::disk('public')->makeDirectory('zips');
-    }
-
-    // Create zip file
-    $zip = new \ZipArchive; // <-- Global class, no use statement needed
-    if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
-        foreach ($photos as $item) {
-            if (!empty($item->photo) && !empty($item->photo->filename)) {
-                $photoPath = storage_path('app/public/photos/' . $item->photo->filename);
-                if (file_exists($photoPath)) {
-                    $zip->addFile($photoPath, $item->photo->filename);
-                }
-            }
-        }
-        $zip->close();
-    } else {
-        return back()->with('error', 'Could not create ZIP file.');
-    }
-
-    // Stream the ZIP file as a download to avoid memory issues
-    return response()->streamDownload(function () use ($zipFullPath) {
-        $stream = fopen($zipFullPath, 'rb');
-        fpassthru($stream);
-        fclose($stream);
-    }, $zipFileName);
+    return response()->download(storage_path('app/public/' . $relativePath));
 })->name('admin.user.wishlist.download');
+
 
 
 
